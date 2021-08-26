@@ -6,10 +6,26 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
+type time struct {
+	start int
+	end   int
+	day   int      // 1 for Monday etc
+	week  [10]bool // 12345678910
+}
+
 type course struct {
-	courseName string
-	courseTime string
-	courseRoom string
+	name string
+	time []time
+	room string
+}
+
+func courseSet(nameInfo, timeInfo, roomInfo string) ([]course, error) {
+	var temp course
+	courseList := make([]course, 0)
+	temp.name = nameInfo
+	temp.room = roomInfo
+
+	return courseList
 }
 
 func main() {
@@ -18,10 +34,6 @@ func main() {
 		fmt.Println(err)
 	}
 	fmt.Println(courseList)
-}
-
-func (this *course) timeSet() error {
-
 }
 
 func readTable(fileName, sheetName string) ([]course, error) {
@@ -43,8 +55,16 @@ func readTable(fileName, sheetName string) ([]course, error) {
 		if tempRunes[0] > 'Z' {
 			break
 		}
-		tempCourse := course{row[2], row[6], row[7]}
+		//每次读到时间，要先进行切片处理
+		tempCourseList, err := courseSet(row[2], row[6], row[7])
+		if err != nil {
+			return courseList, err
+		}
+		for course := range tempCourseList
 		courseList = append(courseList, tempCourse)
 	}
 	return courseList, err
 }
+
+// Todo:
+// 正确流程：先确定时间，获得一个TimeList，然后time := range TimeList进行遍历，把CourseName和CourseRoom传进去，一个个加到courseList
