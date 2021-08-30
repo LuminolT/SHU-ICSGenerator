@@ -36,7 +36,10 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println(courseList)
+	// fmt.Println(courseList)
+	for _, coursePiece := range courseList {
+		fmt.Println(coursePiece)
+	}
 }
 
 func readTable(fileName, sheetName string) ([]course, error) {
@@ -87,7 +90,6 @@ func timeHandle(timeInfo string) ([]time, error) {
 	splitFunc := func(r rune) bool { return r == ' ' || r == '(' || r == ')' }
 	timeInfoSlice := strings.FieldsFunc(timeInfo, splitFunc)
 	//Check
-	fmt.Println(timeInfoSlice)
 	//新生研讨课
 	judgeXy, err := regexp.MatchString("[0-9]-[0-9]周", timeInfoSlice[len(timeInfoSlice)-1])
 	if err != nil {
@@ -103,6 +105,7 @@ func timeHandle(timeInfo string) ([]time, error) {
 				tempTime.week[i] = true
 			}
 		}
+		tempTime.week[0] = true
 	}
 	//形式政策课
 	judgeXszc, err := regexp.MatchString("[0-9]周,[0-9]周", timeInfoSlice[len(timeInfoSlice)-1])
@@ -116,25 +119,44 @@ func timeHandle(timeInfo string) ([]time, error) {
 		}
 		tempTime.week[temp] = true
 		tempTime.week[temp+5] = true
+		tempTime.week[0] = true
 	}
 	//下面进行单双周判定
 	splitFunc = func(r rune) bool {
 		return r == '一' || r == '二' || r == '三' || r == '四' || r == '五' || r == '单' || r == '双' || r == '-'
 	}
+	// 1st Slice [一1-2单]
 	for _, timePiece := range timeInfoSlice {
-		if 单() {
+		if strings.Contains(timePiece, "单") {
 			for i := 1; i <= 10; i += 2 {
 				tempTime.week[i] = true
 			}
+			tempTime.week[0] = true
 		}
-		if 双() {
+		if strings.Contains(timePiece, "双") {
 			for i := 2; i <= 10; i += 2 {
 				tempTime.week[i] = true
 			}
+			tempTime.week[0] = true
 		}
-		switch 12345 {
-
+		if !tempTime.week[0] {
+			for i := 1; i <= 10; i++ {
+				tempTime.week[i] = true
+			}
 		}
+		switch timePiece[0:3] {
+		case "一":
+			tempTime.day = 1
+		case "二":
+			tempTime.day = 2
+		case "三":
+			tempTime.day = 3
+		case "四":
+			tempTime.day = 4
+		case "五":
+			tempTime.day = 5
+		}
+		// 2nd Slice [1 2]
 		timePieceSlice := strings.FieldsFunc(timePiece, splitFunc)
 		startTime, err := strconv.Atoi(timePieceSlice[0])
 		if err != nil {
@@ -146,6 +168,7 @@ func timeHandle(timeInfo string) ([]time, error) {
 		}
 		tempTime.start = setTime(startTime, 1)
 		tempTime.end = setTime(endTime, 2)
+		timeList = append(timeList, tempTime)
 	}
 	return timeList, err
 }
@@ -208,4 +231,5 @@ func setTime(timeIdx, timeType int) int {
 			return 2140
 		}
 	}
+	return 0
 }
