@@ -143,6 +143,7 @@ func timeHandle(timeInfo string) ([]time, error) {
 			for i := 1; i <= 10; i++ {
 				tempTime.week[i] = true
 			}
+			tempTime.week[0] = true
 		}
 		switch timePiece[0:3] {
 		case "一":
