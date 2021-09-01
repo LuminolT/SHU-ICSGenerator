@@ -1,15 +1,18 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
+	ics "github.com/arran4/golang-ical"
 	"github.com/xuri/excelize/v2"
 )
 
-type time struct {
+type courseTime struct {
 	start int
 	end   int
 	day   int      // 1 for Monday etc
@@ -19,7 +22,7 @@ type time struct {
 type course struct {
 	name string
 	room string
-	time
+	courseTime
 }
 
 // func courseSet(nameInfo, timeInfo, roomInfo string) ([]course, error) {
@@ -37,9 +40,23 @@ func main() {
 		fmt.Println(err)
 	}
 	// fmt.Println(courseList)
+	cal := ics.NewCalendar()
+	cal.SetMethod(ics.MethodRequest)
 	for _, coursePiece := range courseList {
-		fmt.Println(coursePiece)
+		// fmt.Println(coursePiece) // Test
+		h := sha256.New()
+		plaintext := fmt.Sprintf("%s%d%d", coursePiece.name, coursePiece.courseTime.day, coursePiece.courseTime.start)
+		fmt.Println(plaintext)
+		h.Write([]byte(plaintext))
+		id := fmt.Sprintf("%x@%s", h.Sum(nil), "ical-relay") // get HashValue in SHA256, used as EVENTID
+		event := cal.AddEvent(id)
+		event.SetStartAt(time.Now())
+		event.SetEndAt(time.Now())
+		event.SetSummary(coursePiece.name)
+		event.SetLocation(coursePiece.room)
+		event.AddRrule(fmt.Sprintf("FREQ=WEEKLY;INTERVAL=%d;COUNT=%d", 1, 10))
 	}
+	// fmt.Println(cal.Serialize())
 }
 
 func readTable(fileName, sheetName string) ([]course, error) {
@@ -72,7 +89,7 @@ func readTable(fileName, sheetName string) ([]course, error) {
 		tempCourse.room = row[7]
 		tempTimeList, _ := timeHandle(row[6])
 		for _, tempTime := range tempTimeList {
-			tempCourse.time = tempTime
+			tempCourse.courseTime = tempTime
 			courseList = append(courseList, tempCourse)
 		}
 	}
@@ -82,9 +99,9 @@ func readTable(fileName, sheetName string) ([]course, error) {
 // Todo:
 // 正确流程：先确定时间，获得一个TimeList，然后time := range TimeList进行遍历，把CourseName和CourseRoom传进去，一个个加到courseList
 
-func timeHandle(timeInfo string) ([]time, error) {
-	var tempTime time
-	timeList := make([]time, 0)
+func timeHandle(timeInfo string) ([]courseTime, error) {
+	var tempTime courseTime
+	timeList := make([]courseTime, 0)
 	//第一遍，筛里面有没有周这个字，两种情况，1-5周，6-10周这种，1,6周，2,7周这种
 	//第二遍，做切分，切分的时候根据里面有没有单双周进行一个判断
 	splitFunc := func(r rune) bool { return r == ' ' || r == '(' || r == ')' }
