@@ -3,6 +3,8 @@ package main
 import (
 	"crypto/sha256"
 	"fmt"
+	"io"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -13,10 +15,11 @@ import (
 )
 
 type courseTime struct {
-	start [2]int
-	end   [2]int
-	day   int      // 1 for Monday etc
-	week  [11]bool // 12345678910
+	start     [2]int
+	end       [2]int
+	day       int     // 1 for Monday etc
+	week      [11]int // 12345678910 week[0]: 1-新研, 2-行政, 3-单周, 4-双周, 5-正常
+	startWeek int
 }
 
 type course struct {
@@ -40,6 +43,9 @@ func main() {
 	var SMONTH time.Month
 	fmt.Println("请输入本学期第一周周一的年月日（如2021-9-6）：")
 	fmt.Scanf("%d-%d-%d", &SYEAR, &SMONTH, &SDAY)
+	// SYEAR = 2021
+	// SMONTH = 9
+	// SDAY = 6
 	// Read Table
 	courseList, err := readTable("course_table.xlsx", "Sheet1")
 	if err != nil {
@@ -56,22 +62,47 @@ func main() {
 		// fmt.Println(coursePiece) // Test
 		h := sha256.New()
 		plaintext := fmt.Sprintf("%s%d%d", coursePiece.name, coursePiece.courseTime.day, coursePiece.courseTime.start)
-		fmt.Println(plaintext)
+		// fmt.Println(plaintext)
 		h.Write([]byte(plaintext))
-		id := fmt.Sprintf("%x@%s", h.Sum(nil), "ical-relay") // get HashValue in SHA256, used as EVENTID
+		id := fmt.Sprintf("%x@%s", h.Sum(nil), "ical") // get HashValue in SHA256, used as EVENTID
 		event := cal.AddEvent(id)
 		// 🤬🤬🤬🤬🤬
 		tempStartTime := time.Date(SYEAR, SMONTH, SDAY, coursePiece.start[0], coursePiece.start[1], 0, 0, TIME_LOCATION)
 		tempEndTime := time.Date(SYEAR, SMONTH, SDAY, coursePiece.end[0], coursePiece.end[1], 0, 0, TIME_LOCATION)
-		tempStartTime.AddDate(0, 0, coursePiece.day-1)
-		tempEndTime.AddDate(0, 0, coursePiece.day-1)
+		// fmt.Println(coursePiece.day)
+		tempStartTime = tempStartTime.AddDate(0, 0, coursePiece.day-1)
+		tempStartTime = tempStartTime.AddDate(0, 0, 7*(coursePiece.startWeek-1))
+		tempEndTime = tempEndTime.AddDate(0, 0, coursePiece.day-1)
+		tempEndTime = tempEndTime.AddDate(0, 0, 7*(coursePiece.startWeek-1))
+		switch coursePiece.week[0] {
+		case 1: //新生研讨课
+			event.AddRrule(fmt.Sprintf("FREQ=WEEKLY;INTERVAL=%d;COUNT=%d", 1, 5))
+		case 2: //形势政策课
+			event.AddRrule(fmt.Sprintf("FREQ=WEEKLY;INTERVAL=%d;COUNT=%d", 5, 2))
+		case 3: //单周
+			event.AddRrule(fmt.Sprintf("FREQ=WEEKLY;INTERVAL=%d;COUNT=%d", 2, 5))
+		case 4: //双周
+			event.AddRrule(fmt.Sprintf("FREQ=WEEKLY;INTERVAL=%d;COUNT=%d", 2, 5))
+		case 5: //正常
+			event.AddRrule(fmt.Sprintf("FREQ=WEEKLY;INTERVAL=%d;COUNT=%d", 1, 10))
+		}
+		// fmt.Println(tempStartTime, "\n", tempEndTime)
 		event.SetStartAt(tempStartTime)
 		event.SetEndAt(tempEndTime)
 		event.SetSummary(coursePiece.name)
 		event.SetLocation(coursePiece.room)
-		event.AddRrule(fmt.Sprintf("FREQ=WEEKLY;INTERVAL=%d;COUNT=%d", 1, 10))
 	}
 	// fmt.Println(cal.Serialize())
+	err2 := WriteFile("./output.ics", []byte(cal.Serialize()), 0666)
+	if err2 != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println("成功写入")
+	}
+	fmt.Println("按任意键退出")
+	b := make([]byte, 1)
+	os.Stdin.Read(b)
+	os.Stdin.Read(b)
 }
 
 func readTable(fileName, sheetName string) ([]course, error) {
@@ -111,9 +142,6 @@ func readTable(fileName, sheetName string) ([]course, error) {
 	return courseList, err
 }
 
-// Todo:
-// 正确流程：先确定时间，获得一个TimeList，然后time := range TimeList进行遍历，把CourseName和CourseRoom传进去，一个个加到courseList
-
 func timeHandle(timeInfo string) ([]courseTime, error) {
 	var tempTime courseTime
 	timeList := make([]courseTime, 0)
@@ -129,15 +157,17 @@ func timeHandle(timeInfo string) ([]courseTime, error) {
 	}
 	if judgeXy {
 		if timeInfoSlice[len(timeInfoSlice)-1][0] == '1' {
+			tempTime.startWeek = 1
 			for i := 1; i <= 5; i++ {
-				tempTime.week[i] = true
+				tempTime.week[i] = 1
 			}
 		} else {
+			tempTime.startWeek = 6
 			for i := 6; i <= 10; i++ {
-				tempTime.week[i] = true
+				tempTime.week[i] = 1
 			}
 		}
-		tempTime.week[0] = true
+		tempTime.week[0] = 1
 	}
 	//形式政策课
 	judgeXszc, err := regexp.MatchString("[0-9]周,[0-9]周", timeInfoSlice[len(timeInfoSlice)-1])
@@ -149,9 +179,10 @@ func timeHandle(timeInfo string) ([]courseTime, error) {
 		if err != nil {
 			return timeList, err
 		}
-		tempTime.week[temp] = true
-		tempTime.week[temp+5] = true
-		tempTime.week[0] = true
+		tempTime.startWeek = temp
+		tempTime.week[temp] = 1
+		tempTime.week[temp+5] = 1
+		tempTime.week[0] = 2
 	}
 	//下面进行单双周判定
 	splitFunc = func(r rune) bool {
@@ -161,21 +192,24 @@ func timeHandle(timeInfo string) ([]courseTime, error) {
 	for _, timePiece := range timeInfoSlice {
 		if strings.Contains(timePiece, "单") {
 			for i := 1; i <= 10; i += 2 {
-				tempTime.week[i] = true
+				tempTime.week[i] = 1
 			}
-			tempTime.week[0] = true
+			tempTime.week[0] = 3
+			tempTime.startWeek = 1
 		}
 		if strings.Contains(timePiece, "双") {
 			for i := 2; i <= 10; i += 2 {
-				tempTime.week[i] = true
+				tempTime.week[i] = 1
 			}
-			tempTime.week[0] = true
+			tempTime.week[0] = 4
+			tempTime.startWeek = 2
 		}
-		if !tempTime.week[0] {
+		if tempTime.week[0] == 0 {
 			for i := 1; i <= 10; i++ {
-				tempTime.week[i] = true
+				tempTime.week[i] = 1
 			}
-			tempTime.week[0] = true
+			tempTime.week[0] = 5
+			tempTime.startWeek = 1
 		}
 		switch timePiece[0:3] {
 		case "一":
@@ -265,4 +299,19 @@ func setTime(timeIdx, timeType int) (int, int) {
 		}
 	}
 	return 0, 0
+}
+
+func WriteFile(filename string, data []byte, perm os.FileMode) error {
+	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
+	if err != nil {
+		return err
+	}
+	n, err := f.Write(data)
+	if err == nil && n < len(data) {
+		err = io.ErrShortWrite
+	}
+	if err1 := f.Close(); err == nil {
+		err = err1
+	}
+	return err
 }
