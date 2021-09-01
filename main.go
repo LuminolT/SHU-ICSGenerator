@@ -13,8 +13,8 @@ import (
 )
 
 type courseTime struct {
-	start int
-	end   int
+	start [2]int
+	end   [2]int
 	day   int      // 1 for Monday etc
 	week  [11]bool // 12345678910
 }
@@ -35,7 +35,17 @@ type course struct {
 // }
 
 func main() {
+	// Initiate Time
+	var SYEAR, SDAY int
+	var SMONTH time.Month
+	fmt.Println("请输入本学期第一周周一的年月日（如2021-9-6）：")
+	fmt.Scanf("%d-%d-%d", &SYEAR, &SMONTH, &SDAY)
+	// Read Table
 	courseList, err := readTable("course_table.xlsx", "Sheet1")
+	if err != nil {
+		fmt.Println(err)
+	}
+	TIME_LOCATION, err := time.LoadLocation("Asia/Shanghai")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -50,8 +60,13 @@ func main() {
 		h.Write([]byte(plaintext))
 		id := fmt.Sprintf("%x@%s", h.Sum(nil), "ical-relay") // get HashValue in SHA256, used as EVENTID
 		event := cal.AddEvent(id)
-		event.SetStartAt(time.Now())
-		event.SetEndAt(time.Now())
+		// 🤬🤬🤬🤬🤬
+		tempStartTime := time.Date(SYEAR, SMONTH, SDAY, coursePiece.start[0], coursePiece.start[1], 0, 0, TIME_LOCATION)
+		tempEndTime := time.Date(SYEAR, SMONTH, SDAY, coursePiece.end[0], coursePiece.end[1], 0, 0, TIME_LOCATION)
+		tempStartTime.AddDate(0, 0, coursePiece.day-1)
+		tempEndTime.AddDate(0, 0, coursePiece.day-1)
+		event.SetStartAt(tempStartTime)
+		event.SetEndAt(tempEndTime)
 		event.SetSummary(coursePiece.name)
 		event.SetLocation(coursePiece.room)
 		event.AddRrule(fmt.Sprintf("FREQ=WEEKLY;INTERVAL=%d;COUNT=%d", 1, 10))
@@ -184,70 +199,70 @@ func timeHandle(timeInfo string) ([]courseTime, error) {
 		if err != nil {
 			return timeList, err
 		}
-		tempTime.start = setTime(startTime, 1)
-		tempTime.end = setTime(endTime, 2)
+		tempTime.start[0], tempTime.start[1] = setTime(startTime, 1)
+		tempTime.end[0], tempTime.end[1] = setTime(endTime, 2)
 		timeList = append(timeList, tempTime)
 	}
 	return timeList, err
 }
 
-func setTime(timeIdx, timeType int) int {
+func setTime(timeIdx, timeType int) (int, int) {
 	// timeIdx := 1~12
 	// timeType := 1,2 1 for StartTime, 2 for EndTime
 	if timeType == 1 {
 		switch timeIdx {
 		case 1:
-			return 800
+			return 8, 00
 		case 2:
-			return 855
+			return 8, 55
 		case 3:
-			return 1000
+			return 10, 00
 		case 4:
-			return 1055
+			return 10, 55
 		case 5:
-			return 1300
+			return 13, 00
 		case 6:
-			return 1355
+			return 13, 55
 		case 7:
-			return 1500
+			return 15, 00
 		case 8:
-			return 1555
+			return 15, 55
 		case 9:
-			return 1800
+			return 18, 00
 		case 10:
-			return 1855
+			return 18, 55
 		case 11:
-			return 2000
+			return 20, 00
 		case 12:
-			return 2055
+			return 20, 55
 		}
 	} else {
 		switch timeIdx {
 		case 1:
-			return 845
+			return 8, 45
 		case 2:
-			return 940
+			return 9, 40
 		case 3:
-			return 1045
+			return 10, 45
 		case 4:
-			return 1140
+			return 11, 40
 		case 5:
-			return 1345
+			return 13, 45
 		case 6:
-			return 1440
+			return 14, 40
 		case 7:
-			return 1545
+			return 15, 45
 		case 8:
-			return 1640
+			return 16, 40
 		case 9:
-			return 1845
+			return 18, 45
 		case 10:
-			return 1940
+			return 19, 40
 		case 11:
-			return 2045
+			return 20, 45
 		case 12:
-			return 2140
+			return 21, 40
 		}
 	}
-	return 0
+	return 0, 0
 }
