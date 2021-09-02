@@ -190,6 +190,10 @@ func timeHandle(timeInfo string) ([]courseTime, error) {
 	}
 	// 1st Slice [一1-2单]
 	for _, timePiece := range timeInfoSlice {
+		// fmt.Println(timePiece)
+		if timePiece == "上机" {
+			continue
+		}
 		if strings.Contains(timePiece, "单") {
 			for i := 1; i <= 10; i += 2 {
 				tempTime.week[i] = 1
