@@ -5,8 +5,10 @@
 
 1.  在教务处官网的课表查询处（[网址](http://xk.autoisp.shu.edu.cn/StudentQuery/QueryCourseTable)）复制表格，粘贴入excel样表（请注意行列对应）；
 2.  运行`run.exe`；
-3.  将`output.ics`发送到手机，在默认浏览器中打开，导入日历；
-4.  是不是很简单，来试试看。
+3.  将`output.ics`发送到手机；
+4.  iOS：从Safari打开导入；
+    Android：从日历打开导入；
+6.  是不是很简单，来，试试看。
 
 ## 2 TODO
 
