@@ -91,6 +91,10 @@ func main() {
 		event.SetEndAt(tempEndTime)
 		event.SetSummary(coursePiece.name)
 		event.SetLocation(coursePiece.room)
+		alarm := event.AddAlarm()
+		// advancedTime := fmt.Sprintf("-PT%dM", ADVANCEDTIME)
+		alarm.SetTrigger("-PT10M")
+		// alarm.SetAction()
 	}
 	// fmt.Println(cal.Serialize())
 	err2 := WriteFile("./output.ics", []byte(cal.Serialize()), 0666)
