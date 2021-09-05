@@ -195,9 +195,9 @@ func timeHandle(timeInfo string) ([]courseTime, error) {
 	// 1st Slice [一1-2单]
 	for _, timePiece := range timeInfoSlice {
 		// fmt.Println(timePiece)
-		if timePiece == "上机" {
-			continue
-		}
+		// if timePiece == "上机" {
+		// 	continue
+		// }
 		if strings.Contains(timePiece, "单") {
 			for i := 1; i <= 10; i += 2 {
 				tempTime.week[i] = 1
@@ -230,6 +230,8 @@ func timeHandle(timeInfo string) ([]courseTime, error) {
 			tempTime.day = 4
 		case "五":
 			tempTime.day = 5
+		default:
+			continue // ╰(*°▽°*)╯防止“上机”“学院机房上机”等情况
 		}
 		// 2nd Slice [1 2]
 		timePieceSlice := strings.FieldsFunc(timePiece, splitFunc)
