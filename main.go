@@ -41,8 +41,14 @@ func main() {
 	// Initiate Time
 	var SYEAR, SDAY int
 	var SMONTH time.Month
+	var GapWeek int
+	var EndWeek int
 	fmt.Println("请输入本学期第一周周一的年月日（如2021-9-6）：")
-	fmt.Scanf("%d-%d-%d", &SYEAR, &SMONTH, &SDAY)
+	fmt.Scanf("%d-%d-%d\n", &SYEAR, &SMONTH, &SDAY)
+	if SMONTH > time.September {
+		fmt.Println("检测到本学期为冬季学期，请输入寒假前最后一周的周数和寒假时长（如8-4表示第八周结束开始放假，放4周）")
+		fmt.Scanf("%d-%d\n", &EndWeek, &GapWeek)
+	}
 	// SYEAR = 2021
 	// SMONTH = 9
 	// SDAY = 6
@@ -60,40 +66,58 @@ func main() {
 	cal.SetMethod(ics.MethodRequest)
 	for _, coursePiece := range courseList {
 		// fmt.Println(coursePiece) // Test
-		h := sha256.New()
-		plaintext := fmt.Sprintf("%s%d%d", coursePiece.name, coursePiece.courseTime.day, coursePiece.courseTime.start)
-		// fmt.Println(plaintext)
-		h.Write([]byte(plaintext))
-		id := fmt.Sprintf("%x@%s", h.Sum(nil), "ical") // get HashValue in SHA256, used as EVENTID
-		event := cal.AddEvent(id)
+
 		// 🤬🤬🤬🤬🤬
 		tempStartTime := time.Date(SYEAR, SMONTH, SDAY, coursePiece.start[0], coursePiece.start[1], 0, 0, TIME_LOCATION)
 		tempEndTime := time.Date(SYEAR, SMONTH, SDAY, coursePiece.end[0], coursePiece.end[1], 0, 0, TIME_LOCATION)
 		// fmt.Println(coursePiece.day)
 		tempStartTime = tempStartTime.AddDate(0, 0, coursePiece.day-1)
-		tempStartTime = tempStartTime.AddDate(0, 0, 7*(coursePiece.startWeek-1))
+		// tempStartTime = tempStartTime.AddDate(0, 0, 7*(coursePiece.startWeek-1))
 		tempEndTime = tempEndTime.AddDate(0, 0, coursePiece.day-1)
-		tempEndTime = tempEndTime.AddDate(0, 0, 7*(coursePiece.startWeek-1))
-		switch coursePiece.week[0] {
-		case 1: //新生研讨课
-			event.AddRrule(fmt.Sprintf("FREQ=WEEKLY;INTERVAL=%d;COUNT=%d", 1, 5))
-		case 2: //形势政策课
-			event.AddRrule(fmt.Sprintf("FREQ=WEEKLY;INTERVAL=%d;COUNT=%d", 5, 2))
-		case 3: //单周
-			event.AddRrule(fmt.Sprintf("FREQ=WEEKLY;INTERVAL=%d;COUNT=%d", 2, 5))
-		case 4: //双周
-			event.AddRrule(fmt.Sprintf("FREQ=WEEKLY;INTERVAL=%d;COUNT=%d", 2, 5))
-		case 5: //正常
-			event.AddRrule(fmt.Sprintf("FREQ=WEEKLY;INTERVAL=%d;COUNT=%d", 1, 10))
-		}
+		// tempEndTime = tempEndTime.AddDate(0, 0, 7*(coursePiece.startWeek-1))
+		// 由于要加入冬季学期寒假的判断，下面就不用重复的了。
+		/*
+			switch coursePiece.week[0] {
+			case 1: //新生研讨课
+				event.AddRrule(fmt.Sprintf("FREQ=WEEKLY;INTERVAL=%d;COUNT=%d", 1, 5))
+			case 2: //形势政策课
+				event.AddRrule(fmt.Sprintf("FREQ=WEEKLY;INTERVAL=%d;COUNT=%d", 5, 2))
+			case 3: //单周
+				event.AddRrule(fmt.Sprintf("FREQ=WEEKLY;INTERVAL=%d;COUNT=%d", 2, 5))
+			case 4: //双周
+				event.AddRrule(fmt.Sprintf("FREQ=WEEKLY;INTERVAL=%d;COUNT=%d", 2, 5))
+			case 5: //正常
+				event.AddRrule(fmt.Sprintf("FREQ=WEEKLY;INTERVAL=%d;COUNT=%d", 1, 10))
+			}
+		*/
 		// fmt.Println(tempStartTime, "\n", tempEndTime)
-		event.SetStartAt(tempStartTime)
-		event.SetEndAt(tempEndTime)
-		event.SetSummary(coursePiece.name)
-		event.SetLocation(coursePiece.room)
-		alarm := event.AddAlarm()
-		// advancedTime := fmt.Sprintf("-PT%dM", ADVANCEDTIME)
-		alarm.SetTrigger("-PT10M")
+		// fmt.Println(coursePiece.name, coursePiece.week)
+		for i := 1; i <= 10; i++ {
+			if coursePiece.week[i] == 1 {
+				//Hash ID Check
+				h := sha256.New()
+				plaintext := fmt.Sprintf("%s%d%d", coursePiece.name, coursePiece.courseTime.day, coursePiece.courseTime.start)
+				// fmt.Println(plaintext)
+				h.Write([]byte(plaintext))
+				id := fmt.Sprintf("%x@%s", h.Sum(nil), "ical") // get HashValue in SHA256, used as EVENTID
+				// new a pointer of cal.EEvent
+				event := cal.AddEvent(id)
+				// Check Real Week
+				finalStartTime := tempStartTime.AddDate(0, 0, 7*(i-1))
+				finalEndTime := tempEndTime.AddDate(0, 0, 7*(i-1))
+				if i > EndWeek {
+					finalStartTime = finalStartTime.AddDate(0, 0, 7*GapWeek)
+					finalEndTime = finalEndTime.AddDate(0, 0, 7*GapWeek)
+				}
+				event.SetStartAt(finalStartTime)
+				event.SetEndAt(finalEndTime)
+				event.SetSummary(coursePiece.name)
+				event.SetLocation(coursePiece.room)
+				alarm := event.AddAlarm()
+				// advancedTime := fmt.Sprintf("-PT%dM", ADVANCEDTIME)
+				alarm.SetTrigger("-PT10M")
+			}
+		}
 		// alarm.SetAction()
 	}
 	// fmt.Println(cal.Serialize())
@@ -147,6 +171,7 @@ func readTable(fileName, sheetName string) ([]course, error) {
 }
 
 func timeHandle(timeInfo string) ([]courseTime, error) {
+	// fmt.Println(timeInfo)
 	var tempTime courseTime
 	timeList := make([]courseTime, 0)
 	//第一遍，筛里面有没有周这个字，两种情况，1-5周，6-10周这种，1,6周，2,7周这种
@@ -194,20 +219,25 @@ func timeHandle(timeInfo string) ([]courseTime, error) {
 	}
 	// 1st Slice [一1-2单]
 	for _, timePiece := range timeInfoSlice {
-		// fmt.Println(timePiece)
+
 		// if timePiece == "上机" {
 		// 	continue
 		// }
 		if strings.Contains(timePiece, "单") {
+			// fmt.Println("Checked")
 			for i := 1; i <= 10; i += 2 {
 				tempTime.week[i] = 1
+				tempTime.week[i+1] = 0
 			}
 			tempTime.week[0] = 3
 			tempTime.startWeek = 1
+			// fmt.Println(tempTime)
 		}
+		// fmt.Println(tempTime)
 		if strings.Contains(timePiece, "双") {
-			for i := 2; i <= 10; i += 2 {
-				tempTime.week[i] = 1
+			for i := 1; i <= 10; i += 2 {
+				tempTime.week[i] = 0
+				tempTime.week[i+1] = 1
 			}
 			tempTime.week[0] = 4
 			tempTime.startWeek = 2
@@ -233,6 +263,8 @@ func timeHandle(timeInfo string) ([]courseTime, error) {
 		default:
 			continue // ╰(*°▽°*)╯防止“上机”“学院机房上机”等情况
 		}
+		// fmt.Println(tempTime)
+		// fmt.Println(timePiece)
 		// 2nd Slice [1 2]
 		timePieceSlice := strings.FieldsFunc(timePiece, splitFunc)
 		startTime, err := strconv.Atoi(timePieceSlice[0])
@@ -246,6 +278,7 @@ func timeHandle(timeInfo string) ([]courseTime, error) {
 		tempTime.start[0], tempTime.start[1] = setTime(startTime, 1)
 		tempTime.end[0], tempTime.end[1] = setTime(endTime, 2)
 		timeList = append(timeList, tempTime)
+		// fmt.Println(tempTime)
 	}
 	return timeList, err
 }
