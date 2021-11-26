@@ -59,6 +59,7 @@ func main() {
 	}
 	TIME_LOCATION, err := time.LoadLocation("Asia/Shanghai")
 	if err != nil {
+		TIME_LOCATION = time.FixedZone("CST", 8*3600)
 		fmt.Println(err)
 	}
 	// fmt.Println(courseList)
