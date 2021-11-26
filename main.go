@@ -223,6 +223,9 @@ func timeHandle(timeInfo string) ([]courseTime, error) {
 		// if timePiece == "上机" {
 		// 	continue
 		// }
+		if tempTime.week[0] == 3 || tempTime.week[0] == 4 {
+			tempTime.week[0] = 0
+		}
 		if strings.Contains(timePiece, "单") {
 			// fmt.Println("Checked")
 			for i := 1; i <= 10; i += 2 {
