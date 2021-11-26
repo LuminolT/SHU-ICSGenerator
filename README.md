@@ -1,6 +1,8 @@
 # SHU-ICSGenerator
 完工啦，快乐
 
+目前稳定（？）版本：[SHU-ICSGenerator v1.0](https://github.com/LuminolT/SHU-ICSGenerator/releases/tag/v1.0)
+
 ## 1 使用方法
 
 1.  在教务处官网的课表查询处（[网址](http://xk.autoisp.shu.edu.cn/StudentQuery/QueryCourseTable)）复制表格，粘贴入excel样表（请注意行列对应）；
